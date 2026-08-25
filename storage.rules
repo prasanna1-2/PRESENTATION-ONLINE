@@ -1,0 +1,27 @@
+rules_version = '2';
+
+// Files live at /presentations/{hostUid}/{code}/{fileName}. Reads are public
+// (the presentation screen, the mobile preview, and pdf.js all need to fetch
+// the file by URL without re-authenticating), but only the uid that owns the
+// folder may upload into it or delete from it.
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /presentations/{hostUid}/{code}/{fileName} {
+      allow read: if true;
+
+      allow write: if request.auth != null
+                   && request.auth.uid == hostUid
+                   && request.resource.size < 250 * 1024 * 1024
+                   && request.resource.contentType.matches(
+                        'application/pdf|image/.*|application/vnd\\.openxmlformats-officedocument\\.presentationml\\.presentation|application/vnd\\.ms-powerpoint|application/vnd\\.oasis\\.opendocument\\.presentation|application/octet-stream'
+                      );
+
+      allow delete: if request.auth != null && request.auth.uid == hostUid;
+    }
+
+    // Deny everything else by default.
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}
